@@ -29,6 +29,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { CalendarView } from "@/components/calendar-view"
 
 interface Loan {
@@ -37,7 +40,7 @@ interface Loan {
   loan_type: string
   total_amount: number
   monthly_payment: number
-  due_day: number
+  payment_type: string
   start_date: string
   end_date: string
   is_active: boolean
@@ -56,6 +59,7 @@ interface Installment {
 interface User {
   id: number
   username: string
+  email: string
 }
 
 export function DashboardContent() {
@@ -68,6 +72,16 @@ export function DashboardContent() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [loanToDelete, setLoanToDelete] = useState<number | null>(null)
   const [loansExpanded, setLoansExpanded] = useState(true)
+  const [showPasswordReset, setShowPasswordReset] = useState(false)
+  const [resetStep, setResetStep] = useState<'request' | 'verify' | 'change'>('request')
+  const [resetEmail, setResetEmail] = useState("")
+  const [resetOldPassword, setResetOldPassword] = useState("")
+  const [resetCode, setResetCode] = useState("")
+  const [resetNewPassword, setResetNewPassword] = useState("")
+  const [resetError, setResetError] = useState("")
+  const [resetSuccess, setResetSuccess] = useState("")
+  const [resetLoading, setResetLoading] = useState(false)
+  const [attemptsLeft, setAttemptsLeft] = useState(3)
 
   useEffect(() => {
     const userStr = localStorage.getItem("user")
@@ -173,13 +187,13 @@ export function DashboardContent() {
     const daysUntil = loan.days_until_due ?? 0
 
     if (daysUntil < 0) {
-      return <Badge variant="destructive">Vencido ({Math.abs(daysUntil)} días)</Badge>
+      return <Badge variant="secondary">Vencido ({Math.abs(daysUntil)} días)</Badge>
     } else if (daysUntil === 0) {
-      return <Badge variant="destructive">Vence hoy</Badge>
+      return <Badge variant="secondary">Vence hoy</Badge>
     } else if (daysUntil <= 3) {
-      return <Badge className="bg-orange-500 hover:bg-orange-600">Próximo a vencer</Badge>
+      return <Badge variant="secondary">Próximo a vencer</Badge>
     } else if (daysUntil <= 7) {
-      return <Badge className="bg-yellow-500 hover:bg-yellow-600">Esta semana</Badge>
+      return <Badge variant="secondary">Esta semana</Badge>
     } else {
       return <Badge variant="secondary">Al día</Badge>
     }
@@ -233,6 +247,271 @@ export function DashboardContent() {
     setDeleteDialogOpen(true)
   }
 
+  const handleRequestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetError("")
+    setResetLoading(true)
+
+    try {
+      const response = await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, oldPassword: resetOldPassword }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setResetError(data.error || "Error al solicitar código")
+        setResetLoading(false)
+        return
+      }
+
+      setResetSuccess("Código enviado al email. Revisa tu bandeja de entrada.")
+      setResetStep('verify')
+    } catch (err) {
+      setResetError("Error de conexión. Intenta nuevamente.")
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetError("")
+    setResetLoading(true)
+
+    try {
+      const response = await fetch("/api/auth/verify-reset-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, code: resetCode }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.attemptsLeft !== undefined) {
+          setAttemptsLeft(data.attemptsLeft)
+        }
+        setResetError(data.error || "Código inválido")
+        setResetLoading(false)
+        return
+      }
+
+      setResetSuccess("Código verificado correctamente")
+      setResetStep('change')
+    } catch (err) {
+      setResetError("Error de conexión. Intenta nuevamente.")
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetError("")
+    setResetLoading(true)
+
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, code: resetCode, newPassword: resetNewPassword }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setResetError(data.error || "Error al cambiar contraseña")
+        setResetLoading(false)
+        return
+      }
+
+      setResetSuccess("Contraseña cambiada exitosamente")
+      setTimeout(() => {
+        setShowPasswordReset(false)
+        setResetStep('request')
+        setResetEmail("")
+        setResetOldPassword("")
+        setResetCode("")
+        setResetNewPassword("")
+        setResetError("")
+        setResetSuccess("")
+        setAttemptsLeft(3)
+      }, 2000)
+    } catch (err) {
+      setResetError("Error de conexión. Intenta nuevamente.")
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const resetPasswordDialog = () => (
+    <Dialog open={showPasswordReset} onOpenChange={setShowPasswordReset}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Cambiar Contraseña</DialogTitle>
+          <DialogDescription>
+            {resetStep === 'request' && "Ingresa tu email y contraseña actual para recibir un código de verificación"}
+            {resetStep === 'verify' && "Ingresa el código de 6 dígitos enviado a tu email"}
+            {resetStep === 'change' && "Ingresa tu nueva contraseña"}
+          </DialogDescription>
+        </DialogHeader>
+
+        {resetStep === 'request' && (
+          <form onSubmit={handleRequestPasswordReset} className="space-y-4">
+            <div className="mt-4 text-center">
+              <Button
+                variant="link"
+                className="text-sm text-muted-foreground hover:text-primary"
+                onClick={() => setShowPasswordReset(false)}
+              >
+                ← Volver al Dashboard
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="resetEmail">Email</Label>
+              <Input
+                id="resetEmail"
+                type="email"
+                placeholder="tu@email.com"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+                disabled={resetLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="resetOldPassword">Contraseña Actual</Label>
+              <Input
+                id="resetOldPassword"
+                type="password"
+                placeholder="••••••"
+                value={resetOldPassword}
+                onChange={(e) => setResetOldPassword(e.target.value)}
+                required
+                disabled={resetLoading}
+              />
+            </div>
+            {resetError && (
+              <Alert variant="destructive">
+                <AlertDescription>{resetError}</AlertDescription>
+              </Alert>
+            )}
+            {resetSuccess && (
+              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
+                <AlertDescription>{resetSuccess}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" className="w-full" disabled={resetLoading}>
+              {resetLoading ? "Enviando..." : "Enviar Código"}
+            </Button>
+          </form>
+        )}
+
+        {resetStep === 'verify' && (
+          <>
+            <div className="mt-4 text-center">
+              <Button
+                variant="link"
+                className="text-sm text-muted-foreground hover:text-primary"
+                onClick={() => setResetStep('request')}
+              >
+                ← Volver
+              </Button>
+            </div>
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="resetCode">Código de Verificación</Label>
+              <Input
+                id="resetCode"
+                type="text"
+                placeholder="123456"
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value)}
+                required
+                disabled={resetLoading}
+                maxLength={6}
+              />
+              <p className="text-xs text-muted-foreground">
+                Te quedan {attemptsLeft} intentos
+              </p>
+            </div>
+            {resetError && (
+              <Alert variant="destructive">
+                <AlertDescription>{resetError}</AlertDescription>
+              </Alert>
+            )}
+            {resetSuccess && (
+              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
+                <AlertDescription>{resetSuccess}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" className="w-full" disabled={resetLoading}>
+              {resetLoading ? "Verificando..." : "Verificar Código"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => setResetStep('request')}
+              disabled={resetLoading}
+            >
+              Volver
+            </Button>
+          </form>
+          </>
+        )}
+
+        {resetStep === 'change' && (
+          <>
+            <div className="mt-4 text-center">
+              <Button
+                variant="link"
+                className="text-sm text-muted-foreground hover:text-primary"
+                onClick={() => setResetStep('verify')}
+              >
+                ← Volver
+              </Button>
+            </div>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="resetNewPassword">Nueva Contraseña</Label>
+              <Input
+                id="resetNewPassword"
+                type="password"
+                placeholder="••••••"
+                value={resetNewPassword}
+                onChange={(e) => setResetNewPassword(e.target.value)}
+                required
+                disabled={resetLoading}
+                minLength={6}
+              />
+              <p className="text-xs text-muted-foreground">
+                Mínimo 6 caracteres
+              </p>
+            </div>
+            {resetError && (
+              <Alert variant="destructive">
+                <AlertDescription>{resetError}</AlertDescription>
+              </Alert>
+            )}
+            {resetSuccess && (
+              <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
+                <AlertDescription>{resetSuccess}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" className="w-full" disabled={resetLoading}>
+              {resetLoading ? "Cambiando..." : "Cambiar Contraseña"}
+            </Button>
+          </form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -244,6 +523,9 @@ export function DashboardContent() {
             <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus préstamos y pagos mensuales</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowPasswordReset(true)}>
+              Cambiar Contraseña
+            </Button>
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               Cerrar Sesión
@@ -363,7 +645,7 @@ export function DashboardContent() {
                                 <strong>Cuota mensual:</strong> {formatCurrency(loan.monthly_payment)}
                               </span>
                               <span>
-                                <strong>Vence el día:</strong> {loan.due_day} de cada mes
+                                <strong>Tipo de pago:</strong> {loan.payment_type}
                               </span>
                               <span>
                                 <strong>Total:</strong> {formatCurrency(loan.total_amount)}
@@ -388,14 +670,14 @@ export function DashboardContent() {
                             )}
                             <p className="text-xs text-muted-foreground">Finaliza: {formatDate(loan.end_date)}</p>
                             <div className="flex gap-2 mt-2">
-                              <Button
+                              {/* <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => router.push(`/dashboard/edit-loan/${loan.id}`)}
                               >
                                 <Pencil className="h-4 w-4 mr-1" />
                                 Editar
-                              </Button>
+                              </Button> */}
                               <Button variant="destructive" size="sm" onClick={() => confirmDelete(loan.id)}>
                                 <Trash2 className="h-4 w-4 mr-1" />
                                 Eliminar
@@ -430,6 +712,7 @@ export function DashboardContent() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        {resetPasswordDialog()}
       </div>
     </div>
   )

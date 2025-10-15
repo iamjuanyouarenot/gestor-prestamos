@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Plus } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface User {
   id: number
@@ -29,7 +30,8 @@ export function AddLoanForm() {
     totalAmount: "",
     numberOfInstallments: "",
     installmentAmount: "",
-    dueDay: "",
+    paymentType: "",
+    paymentFrequency: "",
     startDate: "",
     endDate: "",
   })
@@ -44,29 +46,40 @@ export function AddLoanForm() {
   }, [router])
 
   useEffect(() => {
-    if (formData.startDate && formData.numberOfInstallments && formData.dueDay) {
+    if (formData.startDate && formData.numberOfInstallments && formData.paymentType) {
       const startDate = new Date(formData.startDate)
       const installments = Number.parseInt(formData.numberOfInstallments)
-      const dueDay = Number.parseInt(formData.dueDay)
 
-      if (installments > 0 && dueDay >= 1 && dueDay <= 31) {
-        // Calcular la fecha de la última cuota
-        const lastPaymentDate = new Date(startDate.getFullYear(), startDate.getMonth(), dueDay)
+      if (installments > 0) {
+        let lastPaymentDate: Date
 
-        // Si el día de pago ya pasó en el mes de inicio, empezar desde el siguiente mes
-        if (lastPaymentDate < startDate) {
-          lastPaymentDate.setMonth(lastPaymentDate.getMonth() + 1)
+        if (formData.paymentType === "fixed") {
+          // Para plazo fijo, calcular basado en el día especificado
+          const dueDay = Number.parseInt(formData.paymentFrequency)
+          lastPaymentDate = new Date(startDate.getFullYear(), startDate.getMonth(), dueDay)
+
+          // Si el día de pago ya pasó en el mes de inicio, empezar desde el siguiente mes
+          if (lastPaymentDate < startDate) {
+            lastPaymentDate.setMonth(lastPaymentDate.getMonth() + 1)
+          }
+
+          // Avanzar (installments - 1) meses para llegar a la última cuota
+          lastPaymentDate.setMonth(lastPaymentDate.getMonth() + (installments - 1))
+        } else if (formData.paymentType === "interval") {
+          // Para pagos por intervalo de días
+          const daysInterval = Number.parseInt(formData.paymentFrequency)
+          lastPaymentDate = new Date(startDate)
+          lastPaymentDate.setDate(lastPaymentDate.getDate() + (installments - 1) * daysInterval)
+        } else {
+          return
         }
-
-        // Avanzar (installments - 1) meses para llegar a la última cuota
-        lastPaymentDate.setMonth(lastPaymentDate.getMonth() + (installments - 1))
 
         // Formatear la fecha para el input
         const endDateStr = lastPaymentDate.toISOString().split("T")[0]
         setFormData((prev) => ({ ...prev, endDate: endDateStr }))
       }
     }
-  }, [formData.startDate, formData.numberOfInstallments, formData.dueDay])
+  }, [formData.startDate, formData.numberOfInstallments, formData.paymentType, formData.paymentFrequency])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -112,7 +125,8 @@ export function AddLoanForm() {
       !formData.totalAmount ||
       !formData.numberOfInstallments ||
       !formData.installmentAmount ||
-      !formData.dueDay ||
+      !formData.paymentType ||
+      !formData.paymentFrequency ||
       !formData.startDate ||
       !formData.endDate
     ) {
@@ -143,6 +157,14 @@ export function AddLoanForm() {
       return
     }
 
+    // Construir el paymentType basado en la selección
+    let paymentType: string
+    if (formData.paymentType === "fixed") {
+      paymentType = `Plazo fijo (día ${formData.paymentFrequency})`
+    } else {
+      paymentType = `Plazo de acuerdo a días (cada ${formData.paymentFrequency} días)`
+    }
+
     try {
       const response = await fetch("/api/loans", {
         method: "POST",
@@ -155,7 +177,7 @@ export function AddLoanForm() {
           monthlyPayment: installmentAmount,
           numberOfInstallments: installments,
           installmentAmount: installmentAmount, // Agregar este campo también
-          dueDay: Number.parseInt(formData.dueDay),
+          paymentType: paymentType,
           startDate: formData.startDate,
           endDate: formData.endDate,
         }),
@@ -272,21 +294,43 @@ export function AddLoanForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="dueDay">Día de Vencimiento (1-31)</Label>
-            <Input
-              id="dueDay"
-              name="dueDay"
-              type="number"
-              min="1"
-              max="31"
-              placeholder="15"
-              value={formData.dueDay}
-              onChange={handleChange}
-              required
-              disabled={isLoading}
-            />
-            <p className="text-xs text-muted-foreground">El día del mes en que vence el pago</p>
+            <Label htmlFor="paymentType">Tipo de Pago</Label>
+            <Select value={formData.paymentType} onValueChange={(value) => setFormData(prev => ({ ...prev, paymentType: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona el tipo de pago" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fixed">Plazo fijo (Siempre el mismo día mensual)</SelectItem>
+                <SelectItem value="interval">Plazo de acuerdo a días (cada cuantos días debes pagar)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {formData.paymentType && (
+            <div className="space-y-2">
+              <Label htmlFor="paymentFrequency">
+                {formData.paymentType === "fixed" ? "Día del mes (1-31)" : "Intervalo en días"}
+              </Label>
+              <Input
+                id="paymentFrequency"
+                name="paymentFrequency"
+                type="number"
+                min={formData.paymentType === "fixed" ? "1" : "1"}
+                max={formData.paymentType === "fixed" ? "31" : "365"}
+                placeholder={formData.paymentType === "fixed" ? "15" : "30"}
+                value={formData.paymentFrequency}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                {formData.paymentType === "fixed"
+                  ? "El día del mes en que vence el pago"
+                  : "Cada cuántos días se debe realizar el pago"
+                }
+              </p>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
