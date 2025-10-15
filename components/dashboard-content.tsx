@@ -362,13 +362,9 @@ export function DashboardContent() {
         {resetStep === 'request' && (
           <form onSubmit={handleRequestPasswordReset} className="space-y-4">
             <div className="mt-4 text-center">
-              <Button
-                variant="link"
-                className="text-sm text-muted-foreground hover:text-primary"
-                onClick={() => setShowPasswordReset(false)}
-              >
-                ← Volver al Dashboard
-              </Button>
+              <p className="text-xs text-muted-foreground">
+                Si el email no está asociado a tu cuenta, aparecerá un mensaje de error.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="resetEmail">Email</Label>
@@ -411,17 +407,7 @@ export function DashboardContent() {
         )}
 
         {resetStep === 'verify' && (
-          <>
-            <div className="mt-4 text-center">
-              <Button
-                variant="link"
-                className="text-sm text-muted-foreground hover:text-primary"
-                onClick={() => setResetStep('request')}
-              >
-                ← Volver
-              </Button>
-            </div>
-            <form onSubmit={handleVerifyCode} className="space-y-4">
+          <form onSubmit={handleVerifyCode} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="resetCode">Código de Verificación</Label>
               <Input
@@ -434,9 +420,7 @@ export function DashboardContent() {
                 disabled={resetLoading}
                 maxLength={6}
               />
-              <p className="text-xs text-muted-foreground">
-                Te quedan {attemptsLeft} intentos
-              </p>
+
             </div>
             {resetError && (
               <Alert variant="destructive">
@@ -455,27 +439,22 @@ export function DashboardContent() {
               type="button"
               variant="outline"
               className="w-full"
-              onClick={() => setResetStep('request')}
+              onClick={() => {
+                setResetStep('request')
+                setResetCode('')
+                setResetError('')
+                setResetSuccess('')
+                setAttemptsLeft(3)
+              }}
               disabled={resetLoading}
             >
               Volver
             </Button>
           </form>
-          </>
         )}
 
         {resetStep === 'change' && (
-          <>
-            <div className="mt-4 text-center">
-              <Button
-                variant="link"
-                className="text-sm text-muted-foreground hover:text-primary"
-                onClick={() => setResetStep('verify')}
-              >
-                ← Volver
-              </Button>
-            </div>
-            <form onSubmit={handleChangePassword} className="space-y-4">
+          <form onSubmit={handleChangePassword} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="resetNewPassword">Nueva Contraseña</Label>
               <Input
@@ -505,8 +484,18 @@ export function DashboardContent() {
             <Button type="submit" className="w-full" disabled={resetLoading}>
               {resetLoading ? "Cambiando..." : "Cambiar Contraseña"}
             </Button>
+            {resetSuccess && (
+              <div className="text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPasswordReset(false)}
+                  className="w-full mt-2"
+                >
+                  Cerrar
+                </Button>
+              </div>
+            )}
           </form>
-          </>
         )}
       </DialogContent>
     </Dialog>
@@ -523,7 +512,13 @@ export function DashboardContent() {
             <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus préstamos y pagos mensuales</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowPasswordReset(true)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResetStep('request')
+                setShowPasswordReset(true)
+              }}
+            >
               Cambiar Contraseña
             </Button>
             <Button variant="outline" onClick={handleLogout}>

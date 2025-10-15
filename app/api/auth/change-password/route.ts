@@ -14,6 +14,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 })
     }
 
+    // Validar que contenga al menos una letra
+    const hasLetter = /[a-zA-Z]/.test(newPassword)
+    if (!hasLetter) {
+      return NextResponse.json({ error: 'La contraseña debe contener al menos una letra' }, { status: 400 })
+    }
+
     // Verificar que el código fue usado recientemente (últimos 5 minutos)
     const recentCodeResult = await sql`
       SELECT id FROM password_reset_codes
@@ -33,9 +39,7 @@ export async function POST(request: NextRequest) {
       UPDATE users SET password = ${hashedPassword} WHERE email = ${email}
     `
 
-    if (updateResult.length === 0) {
-      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
-    }
+    // No devolver error si no se encuentra el usuario por seguridad
 
     const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     console.log(`[SECURITY] Contraseña cambiada exitosamente para email: ${email}, IP: ${clientIP}`)

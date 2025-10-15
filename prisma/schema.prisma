@@ -8,12 +8,14 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique @db.VarChar(255)
-  password  String   @db.VarChar(255)
-  email     String   @unique @db.VarChar(255)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  loans     Loan[]
+  id                   Int      @id @default(autoincrement())
+  username             String   @unique @db.VarChar(255)
+  email                String   @unique @db.VarChar(255)
+  password             String   @db.VarChar(255)
+  failedLoginAttempts  Int      @default(0) @map("failed_login_attempts")
+  loginBlockedUntil    DateTime? @map("login_blocked_until") @db.Timestamp(6)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  loans                Loan[]
 
   @@map("users")
 }

@@ -29,6 +29,7 @@ export function LoginForm() {
   const [resetSuccess, setResetSuccess] = useState("")
   const [resetLoading, setResetLoading] = useState(false)
   const [attemptsLeft, setAttemptsLeft] = useState(3)
+  const [loginAttemptsLeft, setLoginAttemptsLeft] = useState(3)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,6 +46,14 @@ export function LoginForm() {
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.error.includes("Te quedan")) {
+          const match = data.error.match(/Te quedan (\d+) intentos/)
+          if (match) {
+            setLoginAttemptsLeft(parseInt(match[1]))
+          }
+        } else if (data.error.includes("Cuenta bloqueada")) {
+          setLoginAttemptsLeft(0)
+        }
         setError(data.error || "Error al iniciar sesión")
         setIsLoading(false)
         return
@@ -52,6 +61,7 @@ export function LoginForm() {
 
       // Guardar sesión en localStorage
       localStorage.setItem("user", JSON.stringify(data.user))
+      setLoginAttemptsLeft(3) // Reset on successful login
 
       // Redirigir al dashboard
       router.push("/dashboard")
@@ -361,6 +371,13 @@ export function LoginForm() {
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {loginAttemptsLeft < 3 && loginAttemptsLeft > 0 && (
+            <Alert>
+              <AlertDescription>
+                Te quedan {loginAttemptsLeft} intentos antes de que tu cuenta sea bloqueada por 2 minutos.
+              </AlertDescription>
             </Alert>
           )}
           <Button type="submit" className="w-full" disabled={isLoading}>

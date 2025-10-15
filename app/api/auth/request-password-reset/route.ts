@@ -11,14 +11,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email y contraseña antigua son requeridos' }, { status: 400 })
     }
 
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'Formato de email inválido' }, { status: 400 })
+    }
+
     // Verificar que el usuario existe y la contraseña es correcta
     const userResult = await sql`
       SELECT id, password FROM users WHERE email = ${email}
     `
 
     if (userResult.length === 0) {
-      // No revelar si el email existe por seguridad
-      return NextResponse.json({ message: 'Si el email existe, se ha enviado un código de verificación' })
+      // No revelar si el email existe por seguridad, pero validar formato
+      return NextResponse.json({ error: 'Email o contraseña incorrectos' }, { status: 401 })
     }
 
     const user = userResult[0]
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
       // Log intento fallido
       const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
       console.log(`[SECURITY] Intento de cambio de contraseña fallido para email: ${email}, IP: ${clientIP}`)
-      return NextResponse.json({ error: 'Contraseña incorrecta' }, { status: 401 })
+      return NextResponse.json({ error: 'Email o contraseña incorrectos' }, { status: 401 })
     }
 
     // Verificar si hay códigos activos no expirados para este email

@@ -16,8 +16,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ user })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Login error:", error)
+
+    // Si es un error de rate limiting o bloqueo, devolver el mensaje específico
+    if (error.message.includes('Cuenta bloqueada') || error.message.includes('Te quedan')) {
+      return NextResponse.json({ error: error.message }, { status: 429 })
+    }
+
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }
