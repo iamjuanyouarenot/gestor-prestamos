@@ -680,11 +680,11 @@ export function DashboardContent() {
                               >
                                 <Pencil className="h-4 w-4 mr-1" />
                                 Editar
-                              </Button> */}
+                              </Button> 
                               <Button variant="destructive" size="sm" onClick={() => confirmDelete(loan.id)}>
                                 <Trash2 className="h-4 w-4 mr-1" />
                                 Eliminar
-                              </Button>
+                              </Button>*/}
                             </div>
                           </div>
                         </div>
