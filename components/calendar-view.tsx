@@ -134,6 +134,9 @@ export function CalendarView({ userId }: CalendarViewProps) {
 
             // Si coincide con el día actual, marcar como día de pago
             dueDay = expectedPaymentDate.getDate();
+          } else if (loan.payment_type === 'Fin de mes') {
+            // Para fin de mes, el día de pago es el último día del mes
+            dueDay = new Date(year, month, 0).getDate(); // Último día del mes
           } else {
             // Fallback: extraer número del string
             dueDay = parseInt(loan.payment_type.match(/\d+/)?.[0] || "15");

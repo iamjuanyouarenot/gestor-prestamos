@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Creando préstamo con", numberOfInstallments, "cuotas")
 
-    // Calcular el total final (monto original + interés)
-    const finalTotalAmount = totalAmount * (1 + interestRate / 100)
+    // Calcular el total final usando la fórmula correcta (installmentAmount * numberOfInstallments)
+    const finalTotalAmount = installmentAmount * numberOfInstallments
 
     // Crear el préstamo
     const loanResult = await sql`
@@ -129,6 +129,12 @@ export async function POST(request: NextRequest) {
         dueDate = new Date(currentDate);
         // Para la siguiente iteración, avanzar el intervalo
         currentDate.setDate(currentDate.getDate() + daysInterval);
+      } else if (paymentType === "Fin de mes") {
+        // Para fin de mes, calcular el último día del mes actual
+        dueDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0); // Último día del mes
+
+        // Para la siguiente iteración, avanzar al siguiente mes
+        currentDate.setMonth(currentDate.getMonth() + 1);
       } else {
         // Fallback: asumir mensual
         dueDate = new Date(currentDate);

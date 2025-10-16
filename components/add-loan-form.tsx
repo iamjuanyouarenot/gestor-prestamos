@@ -38,6 +38,19 @@ export function AddLoanForm() {
     endDate: "",
   })
 
+  // Función para calcular TEM (Tasa Efectiva Mensual) desde TEA
+  const calculateTEM = (tea: number): number => {
+    return Math.pow(1 + tea / 100, 1 / 12) - 1
+  }
+
+  // Función para calcular la cuota mensual usando sistema francés
+  const calculateMonthlyPayment = (principal: number, tea: number, numInstallments: number): number => {
+    const tem = calculateTEM(tea)
+    const numerator = principal * tem
+    const denominator = 1 - Math.pow(1 + tem, -numInstallments)
+    return numerator / denominator
+  }
+
   useEffect(() => {
     const userStr = localStorage.getItem("user")
     if (!userStr) {
@@ -72,6 +85,9 @@ export function AddLoanForm() {
           const daysInterval = Number.parseInt(formData.paymentFrequency)
           lastPaymentDate = new Date(startDate)
           lastPaymentDate.setDate(lastPaymentDate.getDate() + (installments - 1) * daysInterval)
+        } else if (formData.paymentType === "Fin de mes") {
+          // Para fin de mes, calcular el último día del mes correspondiente al último pago
+          lastPaymentDate = new Date(startDate.getFullYear(), startDate.getMonth() + installments, 0) // Último día del mes
         } else {
           return
         }
@@ -93,9 +109,8 @@ export function AddLoanForm() {
     const interestRate = Number.parseFloat(formData.interestRate) || 0
 
     if (totalAmount > 0 && numberOfInstallments > 0) {
-      // Calcular el monto total con interés
-      const totalWithInterest = totalAmount * (1 + interestRate / 100)
-      const installmentAmount = totalWithInterest / numberOfInstallments
+      // Calcular el monto por cuota usando sistema francés
+      const installmentAmount = calculateMonthlyPayment(totalAmount, interestRate, numberOfInstallments)
 
       setFormData((prev) => ({
         ...prev,
@@ -120,7 +135,8 @@ export function AddLoanForm() {
       const interestRate = Number.parseFloat(formData.interestRate) || 0
 
       if (capital > 0 && installments > 0 && installmentAmount > 0) {
-        const finalTotal = capital * (1 + interestRate / 100)
+        // Calcular el total final usando la fórmula correcta
+        const finalTotal = installmentAmount * installments
         const calculatedTotal = installments * installmentAmount
         if (Math.abs(calculatedTotal - finalTotal) > 0.1) { // Aumentar tolerancia a 0.1 para evitar errores de redondeo
           setError(
@@ -132,6 +148,8 @@ export function AddLoanForm() {
       }
     }, 0)
   }
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,7 +169,7 @@ export function AddLoanForm() {
       !formData.numberOfInstallments ||
       !formData.installmentAmount ||
       !formData.paymentType ||
-      !formData.paymentFrequency ||
+      (formData.paymentType !== "Fin de mes" && !formData.paymentFrequency) ||
       !formData.startDate ||
       !formData.endDate
     ) {
@@ -159,6 +177,8 @@ export function AddLoanForm() {
       setIsLoading(false)
       return
     }
+
+
 
     const interestRateValue = Number.parseFloat(formData.interestRate) || 0
     if (interestRateValue < 0 || interestRateValue > 100) {
@@ -181,8 +201,8 @@ export function AddLoanForm() {
     const installmentAmount = Number.parseFloat(formData.installmentAmount)
     const interestRate = Number.parseFloat(formData.interestRate) || 0
 
-    // Calcular el total final esperado (monto original + interés)
-    const finalTotalAmount = total * (1 + interestRate / 100)
+    // Calcular el total final esperado usando la fórmula correcta
+    const finalTotalAmount = installmentAmount * installments
     const calculatedTotal = installments * installmentAmount
 
     if (Math.abs(calculatedTotal - finalTotalAmount) > 0.1) {
@@ -197,8 +217,12 @@ export function AddLoanForm() {
     let paymentType: string
     if (formData.paymentType === "fixed") {
       paymentType = `Plazo fijo (día ${formData.paymentFrequency})`
-    } else {
+    } else if (formData.paymentType === "interval") {
       paymentType = `Plazo de acuerdo a días (cada ${formData.paymentFrequency} días)`
+    } else if (formData.paymentType === "Fin de mes") {
+      paymentType = `Fin de mes`
+    } else {
+      paymentType = formData.paymentType
     }
 
     try {
@@ -331,7 +355,7 @@ export function AddLoanForm() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="interestRate">Tasa de Interés (%)</Label>
+              <Label htmlFor="interestRate">Tasa de Interés TEA (%)</Label>
               <Input
                 id="interestRate"
                 name="interestRate"
@@ -359,7 +383,7 @@ export function AddLoanForm() {
                 required
                 disabled={isLoading}
               />
-              <p className="text-xs text-muted-foreground">Se calcula automáticamente</p>
+              <p className="text-xs text-muted-foreground">Se calcula automáticamente usando sistema francés</p>
             </div>
           </div>
 
@@ -372,12 +396,20 @@ export function AddLoanForm() {
                   <span>S/ {Number.parseFloat(formData.totalAmount).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Tasa de interés ({formData.interestRate}%):</span>
-                  <span>S/ {(Number.parseFloat(formData.totalAmount) * Number.parseFloat(formData.interestRate) / 100).toFixed(2)}</span>
+                  <span>Tasa Efectiva Anual (TEA):</span>
+                  <span>{formData.interestRate}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tasa Efectiva Mensual (TEM):</span>
+                  <span>{(calculateTEM(Number.parseFloat(formData.interestRate)) * 100).toFixed(4)}%</span>
                 </div>
                 <div className="flex justify-between font-semibold border-t pt-2">
                   <span>Total del préstamo (con interés):</span>
-                  <span>S/ {(Number.parseFloat(formData.totalAmount) * (1 + Number.parseFloat(formData.interestRate) / 100)).toFixed(2)}</span>
+                  <span>S/ {(Number.parseFloat(formData.installmentAmount) * Number.parseInt(formData.numberOfInstallments)).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Intereses totales:</span>
+                  <span>S/ {(Number.parseFloat(formData.installmentAmount) * Number.parseInt(formData.numberOfInstallments) - Number.parseFloat(formData.totalAmount)).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Número de cuotas:</span>
@@ -402,11 +434,12 @@ export function AddLoanForm() {
               <SelectContent>
                 <SelectItem value="fixed">Plazo fijo (Siempre el mismo día mensual)</SelectItem>
                 <SelectItem value="interval">Plazo de acuerdo a días (cada cuantos días debes pagar)</SelectItem>
+                <SelectItem value="Fin de mes">Fin de mes</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {formData.paymentType && (
+          {formData.paymentType && formData.paymentType !== "Fin de mes" && (
             <div className="space-y-2">
               <Label htmlFor="paymentFrequency">
                 {formData.paymentType === "fixed" ? "Día del mes (1-31)" : "Intervalo en días"}

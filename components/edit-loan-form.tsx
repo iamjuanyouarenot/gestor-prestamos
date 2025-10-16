@@ -40,6 +40,19 @@ export function EditLoanForm({ loanId }: EditLoanFormProps) {
     endDate: "",
   })
 
+  // Función para calcular TEM (Tasa Efectiva Mensual) desde TEA
+  const calculateTEM = (tea: number): number => {
+    return Math.pow(1 + tea / 100, 1 / 12) - 1
+  }
+
+  // Función para calcular la cuota mensual usando sistema francés
+  const calculateMonthlyPayment = (principal: number, tea: number, numInstallments: number): number => {
+    const tem = calculateTEM(tea)
+    const numerator = principal * tem
+    const denominator = 1 - Math.pow(1 + tem, -numInstallments)
+    return numerator / denominator
+  }
+
   useEffect(() => {
     const userStr = localStorage.getItem("user")
     if (!userStr) {

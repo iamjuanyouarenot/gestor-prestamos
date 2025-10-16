@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 export async function sendPasswordResetCode(email: string, code: string) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Gestor de Préstamos <onboarding@resend.dev>',
+      from: 'Gestor de Préstamos <no-reply@coretoolslab.com>',
       to: [email],
       subject: 'Código de verificación para cambio de contraseña',
       html: `
@@ -18,7 +18,9 @@ export async function sendPasswordResetCode(email: string, code: string) {
           <p>Este código expirará en 5 minutos.</p>
           <p>Si no solicitaste este cambio, ignora este mensaje.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #666; font-size: 12px;">Gestor de Préstamos</p>
+          <p style="color: #666; font-size: 12px;">Gestor de Préstamos - Grupo 3</p>
+          <link href="https://gestor-prestamos.vercel.app" style="color: #666; text-decoration: none;">gestor-prestamos.vercel.app</link>
+          p
         </div>
       `,
     })
