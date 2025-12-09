@@ -4,6 +4,13 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -32,8 +39,19 @@ interface NotificationSettingsDialogProps {
     onUpdateSuccess: (updatedUser: User) => void
 }
 
+const COUNTRY_CODES = [
+    { code: "+51", country: "Perú 🇵🇪" },
+    { code: "+1", country: "USA 🇺🇸" },
+    { code: "+52", country: "México 🇲🇽" },
+    { code: "+57", country: "Colombia 🇨🇴" },
+    { code: "+56", country: "Chile 🇨🇱" },
+    { code: "+54", country: "Argentina 🇦🇷" },
+    { code: "+34", country: "España 🇪🇸" },
+]
+
 export function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateSuccess }: NotificationSettingsDialogProps) {
     const [phoneNumber, setPhoneNumber] = useState("")
+    const [countryCode, setCountryCode] = useState("+51")
     const [enabled, setEnabled] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
@@ -41,8 +59,22 @@ export function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateS
 
     useEffect(() => {
         if (user) {
-            setPhoneNumber(user.phoneNumber || "")
             setEnabled(user.notificationsEnabled || false)
+
+            if (user.phoneNumber) {
+                // Intentar detectar el código de país
+                const foundCode = COUNTRY_CODES.find(c => user.phoneNumber?.startsWith(c.code))
+                if (foundCode) {
+                    setCountryCode(foundCode.code)
+                    setPhoneNumber(user.phoneNumber.replace(foundCode.code, ""))
+                } else {
+                    // Si no coincide, dejarlo como está o asumir por defecto (aquí dejamos el raw si no tiene match)
+                    setPhoneNumber(user.phoneNumber)
+                }
+            } else {
+                setPhoneNumber("")
+                setCountryCode("+51")
+            }
         }
     }, [user])
 
@@ -52,17 +84,17 @@ export function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateS
         setSuccess("")
 
         try {
-            // NOTE: We need an endpoint to update user profile. 
-            // Assuming for now I can create one or use existing if any.
-            // I will implement a quick profile update endpoint or reuse logic.
-            // Let's assume /api/auth/profile exists or create it.
-            // Since it wasn't in the plan, I'll need to create it! 
-            // I'll assume for this file creation it calls that endpoint.
+            // Combinar código y número
+            const fullPhoneNumber = `${countryCode}${phoneNumber}`
 
             const response = await fetch("/api/auth/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ id: user?.id, phoneNumber, notificationsEnabled: enabled }),
+                body: JSON.stringify({
+                    id: user?.id,
+                    phoneNumber: fullPhoneNumber,
+                    notificationsEnabled: enabled
+                }),
             })
 
             const data = await response.json()
@@ -102,15 +134,30 @@ export function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateS
 
                     <div className="space-y-2">
                         <Label htmlFor="phone">Número de Celular</Label>
-                        <Input
-                            id="phone"
-                            placeholder="999 999 999"
-                            value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
-                            disabled={!enabled && !phoneNumber} // Allow editing if disabled? Maybe better to always allow
-                        />
+                        <div className="flex gap-2">
+                            <Select value={countryCode} onValueChange={setCountryCode} disabled={!enabled}>
+                                <SelectTrigger className="w-[110px]">
+                                    <SelectValue placeholder="País" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {COUNTRY_CODES.map((c) => (
+                                        <SelectItem key={c.code} value={c.code}>
+                                            {c.code} {c.country.split(" ")[1]}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Input
+                                id="phone"
+                                placeholder="999 999 999"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                disabled={!enabled}
+                                className="flex-1"
+                            />
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                            Ingresa tu número para recibir alertas SMS.
+                            Selecciona tu código de país e ingresa tu número.
                         </p>
                     </div>
                 </div>

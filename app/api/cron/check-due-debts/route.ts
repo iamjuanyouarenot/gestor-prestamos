@@ -7,16 +7,22 @@ export async function GET(request: NextRequest) {
     try {
         console.log("[CRON] Checking for due debts...")
 
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        const timeZone = 'America/Lima'
+        const todayLima = new Date().toLocaleDateString('en-CA', { timeZone }) // "YYYY-MM-DD"
 
-        const todayStr = today.toISOString().split("T")[0]
-        const checkDate = new Date(todayStr)
+        console.log(`[CRON] Server Time: ${new Date().toISOString()}`)
+        console.log(`[CRON] Lima Date: ${todayLima}`)
+
+        // Create range for that specific calendar day in UTC
+        // This assumes the DB stores the 'correct' calendar date (e.g. 2025-12-09T12:00:00Z)
+        const startOfDay = new Date(`${todayLima}T00:00:00.000Z`)
+        const endOfDay = new Date(`${todayLima}T23:59:59.999Z`)
 
         const dueInstallments = await prisma.installment.findMany({
             where: {
                 dueDate: {
-                    equals: checkDate
+                    gte: startOfDay,
+                    lte: endOfDay
                 },
                 isPaid: false,
                 loan: {
@@ -43,7 +49,7 @@ export async function GET(request: NextRequest) {
         for (const installment of dueInstallments) {
             const user = installment.loan.user
             if (user.phoneNumber) {
-                const message = `Hola ${user.username}, hoy vence tu cuota de ${installment.loan.bankName} por S/ ${installment.amount}.`
+                const message = `Hoy tienes que pagar ${installment.loan.bankName} S/ ${installment.amount}`
                 const result = await sendSMS(user.phoneNumber, message)
                 console.log(`[SMS] Result for ${user.username}:`, result)
 

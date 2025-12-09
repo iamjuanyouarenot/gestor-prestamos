@@ -124,6 +124,62 @@ export function AddLoanForm() {
     }
   }, [formData.totalAmount, formData.numberOfInstallments, formData.interestRate])
 
+  // State for installment preview
+  const [installmentsPreview, setInstallmentsPreview] = useState<{ number: number; date: Date; isPaid: boolean }[]>([])
+
+  // Función para generar el cronograma preliminar (Debe coincidir con la lógica del servidor)
+  const generateSchedule = () => {
+    if (!formData.startDate || !formData.numberOfInstallments || !formData.paymentType) return
+
+    const start = new Date(formData.startDate + "T12:00:00")
+    const installments = Number.parseInt(formData.numberOfInstallments)
+    const frequency = Number.parseInt(formData.paymentFrequency) || 0
+    let currentDate = new Date(start)
+    const schedule = []
+    const today = new Date()
+
+    for (let i = 1; i <= installments; i++) {
+      let dueDate: Date
+
+      if (formData.paymentType === "fixed") {
+        // Mantener lógica del servidor: usar el dueDay especificado
+        const dueDay = frequency || 15
+        dueDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), dueDay, 12, 0, 0)
+
+        if (dueDate < currentDate) {
+          dueDate.setMonth(dueDate.getMonth() + 1)
+        }
+        currentDate = new Date(dueDate)
+        currentDate.setMonth(currentDate.getMonth() + 1)
+      } else if (formData.paymentType === "interval") {
+        const daysInterval = frequency || 30
+        // Logic matches server: next date is current + interval
+        dueDate = new Date(currentDate)
+        currentDate.setDate(currentDate.getDate() + daysInterval)
+      } else if (formData.paymentType === "Fin de mes") {
+        dueDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 12, 0, 0)
+        currentDate.setMonth(currentDate.getMonth() + 1)
+      } else {
+        // Default fallback
+        dueDate = new Date(currentDate)
+        currentDate.setMonth(currentDate.getMonth() + 1)
+      }
+
+      schedule.push({
+        number: i,
+        date: dueDate,
+        isPaid: dueDate < today // Auto-mark past dates as paid by default
+      })
+    }
+    setInstallmentsPreview(schedule)
+  }
+
+  // Actualizar cronograma cuando cambian los inputs relevantes
+  useEffect(() => {
+    generateSchedule()
+  }, [formData.startDate, formData.numberOfInstallments, formData.paymentType, formData.paymentFrequency])
+
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
 
@@ -247,6 +303,7 @@ export function AddLoanForm() {
           interestRate: interestRateValue,
           startDate: formData.startDate,
           endDate: formData.endDate,
+          paidInstallments: installmentsPreview.filter(i => i.isPaid).map(i => i.number) // Send list of paid indices
         }),
       })
 
@@ -498,6 +555,56 @@ export function AddLoanForm() {
               <p className="text-xs text-muted-foreground">Se calcula automáticamente según las cuotas</p>
             </div>
           </div>
+
+          {/* Preview Details */}
+          {installmentsPreview.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-100 dark:bg-gray-800 p-3 border-b">
+                <h4 className="font-semibold text-sm">Cronograma y Estado Inicial</h4>
+                <p className="text-xs text-muted-foreground">Marca las cuotas que ya han sido pagadas anteriormente.</p>
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2">#</th>
+                      <th className="px-4 py-2">Fecha Vcto</th>
+                      <th className="px-4 py-2">Estado Inicial</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {installmentsPreview.map((inst, idx) => (
+                      <tr key={inst.number} className="border-b dark:border-gray-700">
+                        <td className="px-4 py-2">{inst.number}</td>
+                        <td className="px-4 py-2">{inst.date.toLocaleDateString()}</td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`pay-${inst.number}`}
+                              checked={inst.isPaid}
+                              onChange={(e) => {
+                                const newSchedule = [...installmentsPreview]
+                                newSchedule[idx].isPaid = e.target.checked
+                                setInstallmentsPreview(newSchedule)
+                              }}
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <label htmlFor={`pay-${inst.number}`} className={inst.isPaid ? "text-green-600 font-medium" : "text-gray-500"}>
+                              {inst.isPaid ? "Pagado" : "Pendiente"}
+                            </label>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-2 bg-gray-50 dark:bg-gray-800 border-t text-xs text-center text-gray-500">
+                {installmentsPreview.filter(i => i.isPaid).length} cuotas marcadas como pagadas
+              </div>
+            </div>
+          )}
 
           {error && (
             <Alert variant="destructive">

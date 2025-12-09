@@ -13,16 +13,22 @@ export async function PUT(request: Request) {
             return NextResponse.json({ error: "ID de usuario requerido" }, { status: 400 })
         }
 
+        // Formatear número de teléfono (agregar +51 si es necesario)
+        let formattedPhoneNumber = phoneNumber
+        if (phoneNumber && phoneNumber.length === 9 && !phoneNumber.startsWith("+")) {
+            formattedPhoneNumber = `+51${phoneNumber}`
+        }
+
         const updatedUser = await prisma.user.update({
             where: { id: Number(id) },
             data: {
-                phoneNumber: phoneNumber,
+                phoneNumber: formattedPhoneNumber,
                 notificationsEnabled: Boolean(notificationsEnabled),
             },
         })
 
-        if (Boolean(notificationsEnabled) && phoneNumber) {
-            const result = await sendSMS(phoneNumber, "Gestor de Prestamos: Ahora recibira notificaciones el dia de la fecha de vencimiento de su deuda")
+        if (Boolean(notificationsEnabled) && formattedPhoneNumber) {
+            const result = await sendSMS(formattedPhoneNumber, "Gestor de Prestamos: Ahora recibira notificaciones el dia de la fecha de vencimiento de su deuda")
             console.log("SMS Welcome Result:", result)
         }
 

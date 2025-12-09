@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Progress } from "@/components/ui/progress"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -247,12 +248,49 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
   }
 
   // Cálculos actualizados a CamelCase
-  const totalMonthlyPayment = loans.reduce((acc, loan) => acc + (loan.monthlyPayment || 0), 0)
+  const totalMonthlyPayment = loans.reduce((acc, loan) => acc + Number(loan.monthlyPayment || 0), 0)
 
-  const nextDueInDays = loans.reduce((min, loan) => {
-    const days = loan.daysUntilDue ?? Number.POSITIVE_INFINITY
-    return days < min ? days : min
-  }, Number.POSITIVE_INFINITY)
+  const nextDueInDays = (() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    // Filter pending installments that are due today or in the future
+    const upcoming = installments
+      .filter(i => !i.isPaid)
+      .map(i => {
+        const d = new Date(i.dueDate)
+        // Normalize to local midnight to avoid timezone issues
+        // d.get... uses local time if d was created from string without Z? 
+        // API sends ISO string potentially.
+        // Let's rely on standard Date comparison but zero out hours just in case
+        const due = new Date(i.dueDate)
+        // Adjust for timezone offset if needed (API returns T00:00:00.000Z usually?)
+        // Ideally we treat the date string as local YYYY-MM-DD.
+        // Let's use the explicit components to be safe:
+        const dueLocal = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+        // Actually, if we use the same helper 'formatDate' logic:
+        // const userTimezoneOffset = due.getTimezoneOffset() * 60000
+        // const adjustedDate = new Date(due.getTime() + userTimezoneOffset)
+        // For comparison, let's keep it simple: normalize 'due' to midnight local.
+
+        // Fix: If Date is 2023-12-18T00:00:00Z and local is UTC-5, it becomes 17th 19:00.
+        // We want it to be 18th.
+        // The safest way is to use the string parts if available, or add offset.
+        // Given existing code uses `new Date(dueDate)`, let's stick to consistent logic.
+        // We can add offset to be safe.
+        const offsetCheck = new Date(due.getTime() + due.getTimezoneOffset() * 60000)
+        offsetCheck.setHours(0, 0, 0, 0)
+        return offsetCheck
+      })
+      .filter(d => d >= today)
+      .sort((a, b) => a.getTime() - b.getTime())
+
+    if (upcoming.length === 0) return Number.POSITIVE_INFINITY
+
+    const nextDate = upcoming[0]
+    const diff = nextDate.getTime() - today.getTime()
+    return Math.ceil(diff / (1000 * 60 * 60 * 24))
+  })()
 
   const getStatusBadge = (loan: Loan) => {
     if (loan.isOverdue) return <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded font-medium border border-red-200">Vencido</span>
@@ -403,6 +441,31 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
                           <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-300 mt-2">
                             <span><strong className="font-medium text-gray-900 dark:text-gray-100">Cuota:</strong> {formatCurrency(loan.monthlyPayment)}</span>
                             <span><strong className="font-medium text-gray-900 dark:text-gray-100">Total:</strong> {formatCurrency(loan.finalTotalAmount)}</span>
+                          </div>
+
+                          {/* Progress Section */}
+                          <div className="mt-3 space-y-1.5">
+                            {(() => {
+                              // Calculate progress based on installments linked to this loan
+                              // Note: installments state contains ALL user installments. Filter by loanId.
+                              const loanInst = installments.filter(i => i.loanId === loan.id)
+                              const totalInst = loanInst.length
+                              const paidInst = loanInst.filter(i => i.isPaid).length
+                              const percent = totalInst > 0 ? (paidInst / totalInst) * 100 : 0
+
+                              // Only show if we have installments loaded
+                              if (totalInst === 0) return null
+
+                              return (
+                                <>
+                                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                    <span>Progreso de Pagos</span>
+                                    <span className="font-medium text-gray-700 dark:text-gray-200">{paidInst} de {totalInst} cuotas ({Math.round(percent)}%)</span>
+                                  </div>
+                                  <Progress value={percent} className="h-2" />
+                                </>
+                              )
+                            })()}
                           </div>
                         </div>
 

@@ -51,7 +51,10 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             bankName: true,
-            loanType: true
+            loanType: true,
+            loanCode: true,
+            monthlyPayment: true,
+            totalAmount: true
           }
         }
       },

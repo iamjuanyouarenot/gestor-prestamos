@@ -6,6 +6,8 @@ export interface User {
   id: number
   username: string
   email: string
+  phoneNumber?: string | null
+  notificationsEnabled: boolean
 }
 
 export async function validateUser(username: string, password: string): Promise<User | null> {
@@ -46,6 +48,8 @@ export async function validateUser(username: string, password: string): Promise<
       id: user.id,
       username: user.username,
       email: user.email,
+      phoneNumber: user.phoneNumber,
+      notificationsEnabled: user.notificationsEnabled,
     }
   } catch (error) {
     console.error("Error validating user:", error)
