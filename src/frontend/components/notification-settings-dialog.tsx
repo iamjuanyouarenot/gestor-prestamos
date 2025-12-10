@@ -129,11 +129,41 @@ export function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateS
 
                 <div className="grid gap-4 py-4">
                     <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Número de Celular</Label>
+                            <div className="flex gap-2">
+                                <Select value={countryCode} onValueChange={setCountryCode}>
+                                    <SelectTrigger className="w-[110px]">
+                                        <SelectValue placeholder="País" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {COUNTRY_CODES.map((country) => (
+                                            <SelectItem key={country.code} value={country.code}>
+                                                {country.country} ({country.code})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Input
+                                    id="phoneNumber"
+                                    value={phoneNumber}
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                    placeholder="999 999 999"
+                                    type="tel"
+                                    className="flex-1"
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Necesario para verificar tu identidad y asociar el dispositivo.
+                            </p>
+                        </div>
+
                         <div className="border p-4 rounded-md bg-muted/20">
                             <h4 className="text-sm font-medium mb-2">Notificaciones Push</h4>
                             <p className="text-xs text-muted-foreground mb-4">
                                 Activa las notificaciones en este dispositivo para recibir alertas de pago.
                             </p>
+                            {/* Pass phoneNumber to manager to allow validation inside if needed, or validate here */}
                             {user && <PushNotificationManager userId={user.id} />}
                         </div>
                     </div>
