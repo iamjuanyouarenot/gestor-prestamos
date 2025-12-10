@@ -5,11 +5,26 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 
+// Helper to convert keys because specific browsers require Uint8Array
+function urlBase64ToUint8Array(base64String: string) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4)
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/')
+
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i)
+    }
+    return outputArray
+}
+
 export function PushNotificationManager({ userId }: { userId: number }) {
     const [isSubscribed, setIsSubscribed] = useState(false)
     const [subscription, setSubscription] = useState<PushSubscription | null>(null)
     const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null)
-
     const [isLoading, setIsLoading] = useState(false)
 
     useEffect(() => {
@@ -26,7 +41,6 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                 })
                 .catch(err => {
                     console.error('Service Worker registration failed:', err)
-                    // No toast here to avoid spamming on load, just log
                 })
         }
     }, [])
@@ -40,9 +54,14 @@ export function PushNotificationManager({ userId }: { userId: number }) {
         }
 
         try {
+            // Use env var or fallback to the new key
+            // Crucial: Must be converted to Uint8Array for browser compatibility
+            const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOQL-dLrULzrMGcgFMiob4SdYC_hjLhbZiD-AV_g1COS4HknWQFT1W4t6cWM34VHw6eIIzd7WLr16MhpOBlZEyU'
+            const convertedKey = urlBase64ToUint8Array(vapidKey)
+
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BOQL-dLrULzrMGcgFMiob4SdYC_hjLhbZiD-AV_g1COS4HknWQFT1W4t6cWM34VHw6eIIzd7WLr16MhpOBlZEyU'
+                applicationServerKey: convertedKey
             })
 
             setSubscription(sub)
