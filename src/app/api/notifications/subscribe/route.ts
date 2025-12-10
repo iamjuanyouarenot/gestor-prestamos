@@ -18,6 +18,11 @@ export async function POST(request: Request) {
         })
 
         if (existing) {
+            // Even if existing, ensure the user has notifications enabled
+            await prisma.user.update({
+                where: { id: Number(userId) },
+                data: { notificationsEnabled: true }
+            })
             return NextResponse.json({ message: 'Subscription already exists' })
         }
 
@@ -30,7 +35,13 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({ message: 'Subscription saved successfully' })
+        // Automatically enable notifications for the user
+        await prisma.user.update({
+            where: { id: Number(userId) },
+            data: { notificationsEnabled: true }
+        })
+
+        return NextResponse.json({ message: 'Subscription saved and notifications enabled' })
     } catch (error) {
         console.error('Error saving subscription:', error)
         return NextResponse.json({ error: 'Error saving subscription' }, { status: 500 })

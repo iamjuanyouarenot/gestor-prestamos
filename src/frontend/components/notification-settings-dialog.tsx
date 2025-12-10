@@ -94,7 +94,9 @@ export function NotificationSettingsDialog({ open, onOpenChange, user, onUpdateS
                 body: JSON.stringify({
                     id: user?.id,
                     phoneNumber: fullPhoneNumber,
-                    notificationsEnabled: enabled
+                    // Remove explicit notificationsEnabled update here to prevent overwriting
+                    // The PushNotificationManager toggles this via the subscribe/unsubscribe endpoints
+                    // notificationsEnabled: enabled 
                 }),
             })
 

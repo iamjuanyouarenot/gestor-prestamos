@@ -19,12 +19,18 @@ export async function PUT(request: Request) {
             formattedPhoneNumber = `+51${phoneNumber}`
         }
 
+        const updateData: any = {
+            phoneNumber: formattedPhoneNumber
+        }
+
+        // Only update notificationsEnabled if strictly provided (true/false), avoid undefined -> false
+        if (notificationsEnabled !== undefined && notificationsEnabled !== null) {
+            updateData.notificationsEnabled = Boolean(notificationsEnabled)
+        }
+
         const updatedUser = await prisma.user.update({
             where: { id: Number(id) },
-            data: {
-                phoneNumber: formattedPhoneNumber,
-                notificationsEnabled: Boolean(notificationsEnabled),
-            },
+            data: updateData,
         })
 
         if (Boolean(notificationsEnabled)) {
