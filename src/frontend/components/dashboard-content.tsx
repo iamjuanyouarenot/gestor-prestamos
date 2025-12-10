@@ -121,7 +121,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
   const [selectedLoanInstallments, setSelectedLoanInstallments] = useState<Installment[]>([])
   const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [loanToDelete, setLoanToDelete] = useState<string | null>(null)
+  const [loanToDelete, setLoanToDelete] = useState<number | null>(null) // Changed to number
   const [loansExpanded, setLoansExpanded] = useState(true)
   const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [resetStep, setResetStep] = useState('request')
@@ -210,7 +210,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
   }
 
   const handlePaymentSuccess = () => {
-    if (user) loadData(user.id)
+    if (user) loadData(user.id.toString())
     setPaymentDialogOpen(false)
   }
 
@@ -219,17 +219,23 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
     localStorage.setItem("user", JSON.stringify(updatedUser))
   }
 
-  const confirmDelete = (loanId: string) => {
+  const confirmDelete = (loanId: number) => { // Typed as number
     setLoanToDelete(loanId)
     setDeleteDialogOpen(true)
   }
 
-  const handleDeleteLoan = async (id: string) => {
+  const handleDeleteLoan = async () => { // Removed arg, use state
+    if (!loanToDelete) return
+
     try {
-      await fetch(`/api/loans/${id}`, { method: "DELETE" })
-      if (user) loadData(user.id)
+      const res = await fetch(`/api/loans/${loanToDelete}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Failed to delete")
+
+      if (user) loadData(user.id.toString()) // Ensure string conversion if needed
       setDeleteDialogOpen(false)
+      setLoanToDelete(null)
     } catch (err) {
+      console.error(err)
       setError("Error al eliminar el préstamo")
     }
   }
@@ -511,7 +517,7 @@ export default function DashboardContent() { // Agregado 'default' por si acaso 
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={() => loanToDelete && handleDeleteLoan(loanToDelete)} className="bg-red-600 hover:bg-red-700 text-white">
+              <AlertDialogAction onClick={handleDeleteLoan} className="bg-red-600 hover:bg-red-700 text-white">
                 Sí, Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
