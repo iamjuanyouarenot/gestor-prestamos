@@ -65,6 +65,13 @@ export function PushNotificationManager({ userId }: { userId: number }) {
             console.log('[DEBUG] Vapid Key being used (first 10 chars):', vapidKey.substring(0, 10))
             const convertedKey = urlBase64ToUint8Array(vapidKey)
 
+            // CRITICAL FIX: Unsubscribe existing ghost subscriptions first
+            const existingSub = await registration.pushManager.getSubscription()
+            if (existingSub) {
+                console.log('[DEBUG] Unsubscribing existing subscription/ghost...')
+                await existingSub.unsubscribe()
+            }
+
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedKey
