@@ -43,9 +43,9 @@ git push
     | Nombre | Descripción | Ejemplo / Fuente |
     | :--- | :--- | :--- |
     | `DATABASE_URL` | Conexión a Neon DB | `postgresql://user:pass@ep-xyz.neon.tech/neondb?sslmode=require` |
-    | `TWILIO_ACCOUNT_SID` | SID de tu cuenta Twilio | Consola de Twilio |
-    | `TWILIO_AUTH_TOKEN` | Token de autenticación | Consola de Twilio |
-    | `TWILIO_PHONE_NUMBER` | Número comprado en Twilio | `+1234567890` |
+    | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Clave pública VAPID | Generado con `web-push generate-vapid-keys` |
+    | `VAPID_PRIVATE_KEY` | Clave privada VAPID | Generado con `web-push generate-vapid-keys` |
+    | `VAPID_SUBJECT` | Email de contacto para push | `mailto:tu@email.com` |
     | `RESEND_API_KEY` | API Key de Resend | Dashboard de Resend |
 
 5.  Haz clic en **"Deploy"**.
