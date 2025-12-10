@@ -68,13 +68,17 @@ export function PushNotificationManager({ userId }: { userId: number }) {
             // FORCE hardcoded key to rule out Vercel Env Var issues
             let vapidKey = 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
 
-            // let vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BFjA6kYo1Tvdcv2OjW3fUyjiA5s_uuZQJPtS1qPHbuJyzDrjylFM836LVHEKf1RXezn-Jfyicv90YFn4fmVzKms'
-
             // Clean the key just in case (remove quotes, whitespace)
             vapidKey = vapidKey.replace(/['"\s]/g, '')
 
-            console.log('[DEBUG] Vapid Key being used (first 10 chars):', vapidKey.substring(0, 10))
             const convertedKey = urlBase64ToUint8Array(vapidKey)
+
+            console.log('[DEBUG] Vapid Key Length:', convertedKey.length) // Should be 65 for P-256
+
+            if (convertedKey.length !== 65) {
+                console.error('[CRITICAL] VAPID Key length is incorrect!', convertedKey.length)
+                throw new Error('Clave VAPID inválida (longitud incorrecta)')
+            }
 
             // CRITICAL FIX: Unsubscribe existing ghost subscriptions first
             const existingSub = await registration.pushManager.getSubscription()
@@ -83,10 +87,12 @@ export function PushNotificationManager({ userId }: { userId: number }) {
                 await existingSub.unsubscribe()
             }
 
+            console.log('[DEBUG] Attempting subscribe...')
             const sub = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: convertedKey
             })
+            console.log('[DEBUG] Subscribe success:', sub)
 
             setSubscription(sub)
             setIsSubscribed(true)
@@ -106,6 +112,9 @@ export function PushNotificationManager({ userId }: { userId: number }) {
 
             if (error.name === 'NotAllowedError') {
                 toast.error('Permiso denegado. Habilita notificaciones en tu navegador.')
+            } else if (error.message.includes('Registration failed')) {
+                // Specific hint for Brave/Chrome issues
+                toast.error('Error del navegador. Si usas Brave, habilita "Google Services for Push Messaging" en configuración.')
             } else {
                 toast.error(`Error al activar: ${error.message || 'Desconocido'}`)
             }
